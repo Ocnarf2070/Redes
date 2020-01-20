@@ -1,0 +1,163 @@
+package es.uma.informatica.rsd.chat.impl;
+
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
+import java.net.NetworkInterface;
+import java.net.SocketAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
+
+import es.uma.informatica.rsd.chat.ifaces.Comunicacion;
+import es.uma.informatica.rsd.chat.ifaces.Controlador;
+import es.uma.informatica.rsd.chat.impl.DialogoPuerto.PuertoAlias;
+
+/**
+ * Implementación de prueba del componente de comunicación.
+ * @author Francisco Chicano
+ * @date 9/05/2014
+ *
+ */
+
+public class ComunicacionImpl implements Comunicacion
+{
+	private Controlador c;
+//	private DatagramSocket s;
+	//private DatagramPacket sp;
+//	private DatagramPacket rp;
+	private MulticastSocket socket;
+	private String alias;
+	private int puerto;
+	private InetAddress address;
+	private String msg;
+
+	
+	@Override
+	public void crearSocket(PuertoAlias pa)
+	{
+		alias=pa.alias;
+		puerto=pa.puerto;
+			try {
+				socket=new MulticastSocket(puerto);
+			}catch(SocketException e){ 
+				System.err.println("Error en la creaci�n del puerto");
+			}catch (IOException e) {
+				System.err.println("Error");
+			}
+	}
+
+	@Override
+	public void setControlador(Controlador c)
+	{
+		this.c = c;
+	}
+
+	@Override
+	public void runReceptor()
+	{
+		// TODO
+		// Ejemplo de uso de los métodos para transformar cadenas de caracteres en arrays de bytes y vice versa
+	/*	String cadena = "ejemplo";
+		byte [] data = cadena.getBytes(Charset.forName("UTF-8"));
+		String msg = new String(data, Charset.forName("UTF-8"));
+		assert cadena.equals(msg);
+	//	s.receive(p);
+		DatagramPacket p = null;
+		try {
+			socket.receive(p);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		*/
+		try{
+			while(true){
+				byte[] b= new byte[256];
+				DatagramPacket dp= new DatagramPacket(b, b.length);
+				socket.receive(dp);
+				
+				String msgRec=new String (dp.getData(),Charset.forName("UTF-8"));
+				Scanner sc= new Scanner(msgRec);
+				sc.useDelimiter(",");
+				System.out.println(address);
+				if(address!=null && address.isMulticastAddress()){
+					String dir=sc.next();
+					String nick =sc.next();
+					String msg = sc.next();
+					while(sc.hasNext())msg+=", "+sc.next();
+					SocketAddress sa=new InetSocketAddress(address,puerto);
+					if(NetworkInterface.getByName(dir)!=null){
+						System.out.println("e");
+						c.mostrarMensaje(sa, nick, msg);
+					}
+				}else{
+					String nick=sc.next();
+					String msg=sc.next();
+					while(sc.hasNext())msg+=", "+sc.next();
+					c.mostrarMensaje(dp.getSocketAddress(),nick, msg);
+				}
+				sc.close();
+				
+			}
+		}catch (NoSuchElementException e){
+			System.err.println("Error en la introduccion de datos"
+					+ "");
+		}catch(SocketException e){
+			System.err.println("Error en recibir el mensaje");
+		}catch(IOException e){
+			System.err.println("Error general");
+		}
+		
+	}
+
+	@Override
+	public void envia(InetSocketAddress sa, String mensaje)
+	{
+		try {
+			//address=sa.getAddress();
+			if(sa.getAddress().isMulticastAddress())msg=new String(sa.getAddress().toString()+","+alias+","+mensaje);
+			else msg=new String(","+alias+","+mensaje);
+			byte [] data = msg.getBytes(Charset.forName("UTF-8"));
+			System.out.println(address+" "+sa.getPort());
+			DatagramPacket dp = new DatagramPacket(data, data.length,sa.getAddress(),sa.getPort());
+			socket.send(dp);
+		} catch (IOException e) {
+			System.err.println("Error en el envio");
+		}
+		// TODO
+	}
+
+	@Override
+	public void joinGroup(InetAddress multi)
+	{
+		try {
+			address=multi;
+			System.out.println(address);
+			socket.joinGroup(multi);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// TODO
+	}
+
+	@Override
+	public void leaveGroup(InetAddress multi)
+	{
+		try {
+			socket.leaveGroup(multi);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		};
+		// TODO
+	}
+
+}
